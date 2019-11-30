@@ -1,0 +1,33 @@
+
+language: java
+
+jdk:
+  - openjdk8
+
+install:
+  mvn --settings .settings.xml install -DskipTests=true -Dmaven.javadoc.skip=true -Dgpg.skip -B -V
+
+script:
+  mvn --settings .settings.xml clean verify -DskipTests=false -Dmaven.javadoc.skip=true -Dgpg.skip -B -U
+
+before_deploy:
+  - mvn help:evaluate -N -Dexpression=project.version | grep -v '\['
+  - export project_version=$(mvn help:evaluate -N -Dexpression=project.version | grep -v '\[')
+  - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
+  - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
+  - sed -i -- "s/\${env.SONATYPE_PASSWORD}/$SONATYPE_PASSWORD/g" .settings.xml
+  - mvn --settings .settings.xml clean deploy -DskipTests=true -Dmaven.javadoc.skip=false -B -U
+
+deploy:
+  provider: releases
+  api_key:
+    secure: BjovkEz6d4FTBH7hRjclv0aioAx6sVBSFhBEDKb8ygyZR3nJ/34xIaPL8wQrFpBOmkFdLp+SQvCaChqiNYoSimT6+hpW82V13dbrqznd9e2a55h7LyxhGnJO4bceJcz5WC0V5t3OmXR8JBKWQxhWydXhDEE1/q3Kq3RG7iPwMvSJlJBtZ92BpHGHaMcJk59IXDo0hAMT0aW9DCuVxMHefX5zhgRguC1banFk3ViCnzwwT+tx8enUJPPJMPgBjQ5sVxtUnDQSrXRFbbUvCkHGTQWYoVqOT8CVii6bt2baWlotqbvFfVzbQfzvpzNkiCggBUA/NPJV+VC/IWKxM7gXIkc8vzvftzD+BdAyXhgvchaTDbdxAn5MsWtU60czZF2NxHex9JkBgj90N7vLZiHg3b74fYpq5qALzjSLe7xKSRkct5o256JVJZb/KJSHBUiPi2PSexiHSUG81MRNF/jaizhTEYWFLVJE32EJPfNKZqawTr7/+yo14gbR/URasRZGzane5xAO1riGSUkN2oZ3rLb2bhrGGZO9qDQoYc1zPljGsjN4YZWjCxCPxYg0k1i9pLdnecbpqWK/ZT1zXLp0K5wqLkI+EdLZS9jauAV39sUwUyKco/XGNJhK9CdkPreKu6gFs4qmllFWhkMONamITVThHF6HAK8QhFJFQ4zlSEk=
+  file:
+    - "target/log-file-$project_version.jar"
+    - "target/log-file-$project_version-javadoc.jar"
+    - "target/log-file-$project_version-sources.jar"
+  skip_cleanup: true
+  on:
+    tags: true
+    repo: xxlabaza/log-file
+  name: $project_version

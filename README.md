@@ -57,40 +57,32 @@ A log file has the next structure:
 <table>
   <thead>
     <tr>
-      <th align="center" colspan="4">log file structure</th>
+      <th align="center" colspan="5">log file structure</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td align="center">file header</td>
+      <td align="center" colspan="2"><b>file header</b></td>
+      <td align="center" colspan="3"><b>blocks</b></td>
+    </tr>
+    <tr>
+      <td align="center">version</td>
+      <td align="center">block size</td>
       <td align="center">block 0</td>
       <td align="center">...</td>
       <td align="center">block n</td>
+    </tr>
+    <tr>
+      <td align="center">1 byte</td>
+      <td align="center">4 bytes</td>
+      <td align="center" colspan="3">blocks count * <b>block size</b></td>
     </tr>
   </tbody>
 </table>
 
 ### File header
 
-Every log file starts with this section:
-
-<table>
-  <thead>
-    <tr>
-      <th align="center" colspan="2">file header</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center">version</td>
-      <td align="center">block size</td>
-    </tr>
-    <tr>
-      <td align="center">1 byte</td>
-      <td align="center">4 bytes</td>
-    </tr>
-  </tbody>
-</table>
+File header's description:
 
 <dl>
   <dt>version</dt>

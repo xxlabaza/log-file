@@ -15,6 +15,7 @@ before_deploy:
   - export project_version=$(./mvnw help:evaluate -N -Dexpression=project.version | grep -v '\[')
   - echo $GPG_SECRET_KEYS | base64 --decode | $GPG_EXECUTABLE --import
   - echo $GPG_OWNERTRUST | base64 --decode | $GPG_EXECUTABLE --import-ownertrust
+  - sed -i -- "s/\${env.SONATYPE_PASSWORD}/$SONATYPE_PASSWORD/g" .settings.xml
   - ./mvnw --settings .settings.xml -Dsettings.security=.settings-security.xml clean deploy -DskipTests=true -Dmaven.javadoc.skip=false -B -U
 
 deploy:

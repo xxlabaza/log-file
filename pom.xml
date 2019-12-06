@@ -42,6 +42,13 @@ limitations under the License.
     <skipAllTests>false</skipAllTests>
   </properties>
 
+  <name>Log file</name>
+  <description>
+    A Java library for working with append-only files
+  </description>
+  <url>https://github.com/xxlabaza/log-file</url>
+  <inceptionYear>2019</inceptionYear>
+
   <licenses>
     <license>
       <name>The Apache Software License, Version 2.0</name>

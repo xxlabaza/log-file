@@ -27,8 +27,6 @@ import lombok.experimental.FieldDefaults;
 
 /**
  * This is a common parent exception class for all errors, which occurs while reading a log file.
- *
- * @see FileCorruptedExcetion
  */
 @Getter
 @ToString

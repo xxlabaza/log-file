@@ -17,17 +17,25 @@
 package com.xxlabaza.utils.log.file;
 
 import static com.xxlabaza.utils.log.file.CorruptionHandler.PRINT_STACK_TRACE_AND_CONTINUE;
+import static io.appulse.utils.SizeUnit.KILOBYTES;
 import static lombok.AccessLevel.PRIVATE;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.xxlabaza.utils.log.file.exception.FileReadException;
 
 import io.appulse.utils.Bytes;
+import io.appulse.utils.BytesPool;
+import lombok.Builder;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
+import lombok.Value;
+import lombok.With;
+import lombok.val;
 import lombok.experimental.FieldDefaults;
 
 /**
@@ -42,7 +50,9 @@ public final class LogFile implements AutoCloseable {
 
   Config config;
   AtomicInteger modificationCount;
-  Appender appender;
+  BytesPool pool;
+  @Getter(value = PRIVATE, lazy = true)
+  Appender appender = createAppender();
 
   /**
    * Constructs a new {@code LogFile} instance.
@@ -50,9 +60,18 @@ public final class LogFile implements AutoCloseable {
    * @param config the configuration object.
    */
   public LogFile (Config config) {
+    this(config, BytesPool.builder()
+        .initialBuffersCount(1)
+        .maximumBuffersCount(Integer.MAX_VALUE)
+        .initialBufferSizeBytes(config.getBlockBufferSizeBytes())
+        .bufferCreateFunction(Bytes::allocate)
+        .build());
+  }
+
+  LogFile (Config config, BytesPool pool) {
     this.config = config;
+    this.pool = pool;
     modificationCount = new AtomicInteger(0);
-    appender = new Appender(config);
   }
 
   /**
@@ -81,7 +100,7 @@ public final class LogFile implements AutoCloseable {
    */
   public void append (@NonNull Bytes buffer) {
     modificationCount.incrementAndGet();
-    appender.append(buffer);
+    getAppender().append(buffer);
   }
 
   /**
@@ -104,11 +123,14 @@ public final class LogFile implements AutoCloseable {
    *                           they process with the specified handler
    */
   public void load (@NonNull RecordConsumer consumer, @NonNull CorruptionHandler corruptionHandler) {
-    Reader.builder()
+    val builder = Reader.builder()
         .logFile(this)
         .config(config)
-        .build()
-        .read(consumer, corruptionHandler);
+        .pool(pool);
+
+    try (val reader = builder.build()) {
+      reader.read(consumer, corruptionHandler);
+    }
   }
 
   /**
@@ -116,17 +138,70 @@ public final class LogFile implements AutoCloseable {
    */
   @Override
   public void close () {
-    appender.close();
+    if (appender.get() == null) {
+      return;
+    }
+    getAppender().close();
   }
 
   /**
    * Clears all data from the file.
    */
   public void clear () {
-    appender.reset();
+    if (appender.get() == null) {
+      return;
+    }
+    getAppender().reset();
   }
 
   int getModificationCount () {
     return modificationCount.get();
+  }
+
+  private Appender createAppender () {
+    return new Appender(config, pool);
+  }
+
+  /**
+   * A log file's configuration object.
+   */
+  @With
+  @Value
+  @Builder
+  public static class Config {
+
+    /**
+     * The configuration with default settings.
+     */
+    public static final Config DEFAULT = Config.builder().build();
+
+    /**
+     * A path to a log file. The default value is <b>./file.log</b>.
+     *
+     * @return the path to the log file.
+     */
+    @NonNull
+    @Builder.Default
+    Path path = Paths.get("./file.log");
+
+    /**
+     * A block buffer size, in bytes. It is an internal setting, which helps to
+     * format the log file structure. The default value is <b>32 kilobytes</b>.
+     *
+     * @return the block buffer size, in bytes.
+     */
+    @NonNull
+    @Builder.Default
+    Integer blockBufferSizeBytes = (int) KILOBYTES.toBytes(32);
+
+    /**
+     * Forces any updates to the log file to be written to the storage device.
+     * The default value is <b>true</b>.
+     *
+     * @return the current <b>forceFlush</b> value.
+     */
+    @NonNull
+    @Builder.Default
+    Boolean forceFlush = true;
   }
 }

@@ -25,6 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
 import io.appulse.utils.Bytes;
+import io.appulse.utils.BytesPool;
 import lombok.val;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,27 +35,36 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Testing appender functionality")
 class AppenderTests {
 
-  Path path = null;
+  Path path;
+
+  BytesPool pool;
 
   @BeforeEach
-  void beforeAll () throws Exception {
+  void beforeEach () throws Exception {
     path = Files.createTempFile("log", ".removeme");
+    pool = BytesPool.builder()
+        .initialBuffersCount(1)
+        .maximumBuffersCount(Integer.MAX_VALUE)
+        .initialBufferSizeBytes(1024)
+        .bufferCreateFunction(Bytes::resizableArray)
+        .build();
   }
 
   @AfterEach
-  void afterAll () throws Exception {
+  void afterEach () throws Exception {
     Files.delete(path);
+    pool.close();
   }
 
   @Test
   void append () throws Exception {
-    val config = Config.builder()
+    val config = LogFile.Config.builder()
         .path(path)
         .blockBufferSizeBytes(32)
         .forceFlush(false)
         .build();
 
-    try (val appender = new Appender(config)) {
+    try (val appender = new Appender(config, pool)) {
       val body = new byte[16];
       ThreadLocalRandom.current().nextBytes(body);
       val buffer = Bytes.wrap(body);
@@ -66,7 +76,7 @@ class AppenderTests {
 
   @Test
   void appendWithAlign () throws Exception {
-    val config = Config.builder()
+    val config = LogFile.Config.builder()
         .path(path)
         .blockBufferSizeBytes(32)
         .forceFlush(true)
@@ -78,7 +88,7 @@ class AppenderTests {
     body[body.length - 1] = lastByteMarker;
 
     val writeAction = (Runnable) () -> {
-      try (val appender = new Appender(config)) {
+      try (val appender = new Appender(config, pool)) {
         val buffer = Bytes.wrap(body);
         appender.append(buffer);
       }

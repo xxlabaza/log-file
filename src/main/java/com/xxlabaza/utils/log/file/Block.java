@@ -30,20 +30,26 @@ import java.util.HashSet;
 import com.xxlabaza.utils.log.file.Record.Type;
 
 import io.appulse.utils.Bytes;
+import io.appulse.utils.BytesPool.PooledBytes;
 import io.appulse.utils.HexUtil;
 import io.appulse.utils.ReadBytesUtils;
 import io.appulse.utils.WriteBytesUtils;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.val;
 
+@RequiredArgsConstructor
 @FieldDefaults(level = PRIVATE, makeFinal = true)
-final class Block {
+final class Block implements AutoCloseable {
 
-  Bytes buffer;
+  @NonNull
+  PooledBytes buffer;
 
-  Block (int capacity) {
-    buffer = Bytes.allocate(capacity);
+  @Override
+  public void close () {
+    buffer.release();
   }
 
   @Override

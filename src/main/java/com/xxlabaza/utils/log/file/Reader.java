@@ -35,13 +35,14 @@ import com.xxlabaza.utils.log.file.exception.FileReadException;
 import com.xxlabaza.utils.log.file.exception.RecordCorruptedException;
 
 import io.appulse.utils.Bytes;
+import io.appulse.utils.BytesPool;
 import lombok.Builder;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.val;
 
 @FieldDefaults(level = PRIVATE, makeFinal = true)
-final class Reader {
+final class Reader implements AutoCloseable {
 
   LogFile logFile;
 
@@ -53,7 +54,7 @@ final class Reader {
 
   @Builder
   @SneakyThrows
-  Reader (LogFile logFile, Config config) {
+  Reader (LogFile logFile, LogFile.Config config, BytesPool pool) {
     this.logFile = logFile;
     file = config.getPath();
 
@@ -61,13 +62,20 @@ final class Reader {
       if (channel.size() == 0) {
         val header = new Header(config);
         header.write(channel);
-        block = new Block(config.getBlockBufferSizeBytes());
+        val buffer = pool.acquire(config.getBlockBufferSizeBytes());
+        block = new Block(buffer);
       } else {
         val header = Header.read(channel);
-        block = new Block(header.getBlockBytes());
+        val buffer = pool.acquire(header.getBlockBytes());
+        block = new Block(buffer);
       }
     }
     recordBuffer = Bytes.resizableArray();
+  }
+
+  @Override
+  public void close () {
+    block.close();
   }
 
   long read (RecordConsumer consumer, CorruptionHandler corruptionHandler) {

@@ -66,7 +66,7 @@ class Header {
 
   int blockBytes;
 
-  Header (Config config) {
+  Header (LogFile.Config config) {
     version = DEFAULT_VERSION;
     blockBytes = config.getBlockBufferSizeBytes();
   }

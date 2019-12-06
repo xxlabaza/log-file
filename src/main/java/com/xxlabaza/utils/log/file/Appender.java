@@ -24,6 +24,7 @@ import static lombok.AccessLevel.PRIVATE;
 import java.nio.channels.FileChannel;
 
 import io.appulse.utils.Bytes;
+import io.appulse.utils.BytesPool;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.val;
@@ -38,17 +39,19 @@ final class Appender implements AutoCloseable {
   Block block;
 
   @SneakyThrows
-  Appender (Config config) {
+  Appender (LogFile.Config config, BytesPool pool) {
     forceFlush = config.getForceFlush();
 
     channel = FileChannel.open(config.getPath(), CREATE, WRITE, READ);
     if (channel.size() == 0) {
       val header = new Header(config);
       header.write(channel);
-      block = new Block(config.getBlockBufferSizeBytes());
+      val buffer = pool.acquire(config.getBlockBufferSizeBytes());
+      block = new Block(buffer);
     } else {
       val header = Header.read(channel);
-      block = new Block(header.getBlockBytes());
+      val buffer = pool.acquire(header.getBlockBytes());
+      block = new Block(buffer);
 
       val size = channel.size();
       channel.position(size);
@@ -62,6 +65,7 @@ final class Appender implements AutoCloseable {
   @SneakyThrows
   public void close () {
     block.flush(channel);
+    block.close();
     channel.close();
   }
 

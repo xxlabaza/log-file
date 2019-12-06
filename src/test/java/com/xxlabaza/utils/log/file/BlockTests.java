@@ -23,90 +23,81 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.concurrent.ThreadLocalRandom;
 
 import io.appulse.utils.Bytes;
+import io.appulse.utils.BytesPool;
 import lombok.val;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("Testing block methods")
 class BlockTests {
 
+  BytesPool pool;
+
+  @BeforeEach
+  void beforeEach () throws Exception {
+    pool = BytesPool.builder()
+        .initialBuffersCount(1)
+        .maximumBuffersCount(Integer.MAX_VALUE)
+        .initialBufferSizeBytes(32)
+        .bufferCreateFunction(Bytes::resizableArray)
+        .build();
+  }
+
+  @AfterEach
+  void afterEach () throws Exception {
+    pool.close();
+  }
+
   @Test
   void writeFull () {
-    val block = new Block(32);
-
-    val body = new byte[16];
-    ThreadLocalRandom.current().nextBytes(body);
-    val buffer = Bytes.wrap(body);
-
-    val continueWrite = block.write(buffer);
-    assertThat(continueWrite).isFalse();
-    assertThat(block.hasContent()).isTrue();
-  }
-
-  @Test
-  void writeEmpty () {
-    val block = new Block(32);
-    val buffer = Bytes.allocate(16);
-
-    val continueWrite = block.write(buffer);
-    assertThat(continueWrite).isFalse();
-    assertThat(block.hasContent()).isFalse();
-  }
-
-  @Test
-  void writeManyFull () {
-    val block = new Block(32);
-
-    val body = new byte[8];
-    for (int count = 0; count < 2; count++) {
+    try (val block = new Block(pool.acquire())) {
+      val body = new byte[16];
       ThreadLocalRandom.current().nextBytes(body);
       val buffer = Bytes.wrap(body);
 
       val continueWrite = block.write(buffer);
       assertThat(continueWrite).isFalse();
+      assertThat(block.hasContent()).isTrue();
     }
-    assertThat(block.hasContent()).isTrue();
+  }
+
+  @Test
+  void writeEmpty () {
+    try (val block = new Block(pool.acquire())) {
+      val buffer = Bytes.allocate(16);
+
+      val continueWrite = block.write(buffer);
+      assertThat(continueWrite).isFalse();
+      assertThat(block.hasContent()).isFalse();
+    }
+  }
+
+  @Test
+  void writeManyFull () {
+    try (val block = new Block(pool.acquire())) {
+      val body = new byte[8];
+      for (int count = 0; count < 2; count++) {
+        ThreadLocalRandom.current().nextBytes(body);
+        val buffer = Bytes.wrap(body);
+
+        val continueWrite = block.write(buffer);
+        assertThat(continueWrite).isFalse();
+      }
+      assertThat(block.hasContent()).isTrue();
+    }
   }
 
   @Test
   void readFull () {
-    val block = new Block(32);
-
-    val body = new byte[16];
-    ThreadLocalRandom.current().nextBytes(body);
-
-    block.write(Bytes.wrap(body));
-
-    val buffer = Bytes.resizableArray();
-    val type = block.read(buffer);
-
-    assertThat(type).isEqualTo(FULL);
-    assertThat(buffer.writerIndex())
-        .isEqualTo(body.length);
-  }
-
-  @Test
-  void readEmpty () {
-    val block = new Block(32);
-
-    val buffer = Bytes.resizableArray();
-    val type = block.read(buffer);
-
-    assertThat(type).isEqualTo(UNDEFINED);
-  }
-
-  @Test
-  void readManyFull () {
-    val block = new Block(32);
-
-    val body = new byte[8];
-    for (int count = 0; count < 2; count++) {
+    try (val block = new Block(pool.acquire())) {
+      val body = new byte[16];
       ThreadLocalRandom.current().nextBytes(body);
-      val buffer = Bytes.wrap(body);
-      block.write(buffer);
-    }
 
-    for (int count = 0; count < 2; count++) {
+      block.write(Bytes.wrap(body));
+
       val buffer = Bytes.resizableArray();
       val type = block.read(buffer);
 
@@ -117,16 +108,47 @@ class BlockTests {
   }
 
   @Test
+  void readEmpty () {
+    try (val block = new Block(pool.acquire())) {
+      val buffer = Bytes.resizableArray();
+      val type = block.read(buffer);
+
+      assertThat(type).isEqualTo(UNDEFINED);
+    }
+  }
+
+  @Test
+  void readManyFull () {
+    try (val block = new Block(pool.acquire())) {
+      val body = new byte[8];
+      for (int count = 0; count < 2; count++) {
+        ThreadLocalRandom.current().nextBytes(body);
+        val buffer = Bytes.wrap(body);
+        block.write(buffer);
+      }
+
+      for (int count = 0; count < 2; count++) {
+        val buffer = Bytes.resizableArray();
+        val type = block.read(buffer);
+
+        assertThat(type).isEqualTo(FULL);
+        assertThat(buffer.writerIndex())
+            .isEqualTo(body.length);
+      }
+    }
+  }
+
+  @Test
   void reset () {
-    val block = new Block(32);
+    try (val block = new Block(pool.acquire())) {
+      val body = new byte[16];
+      ThreadLocalRandom.current().nextBytes(body);
 
-    val body = new byte[16];
-    ThreadLocalRandom.current().nextBytes(body);
+      block.write(Bytes.wrap(body));
+      assertThat(block.hasContent()).isTrue();
 
-    block.write(Bytes.wrap(body));
-    assertThat(block.hasContent()).isTrue();
-
-    block.reset();
-    assertThat(block.hasContent()).isFalse();
+      block.reset();
+      assertThat(block.hasContent()).isFalse();
+    }
   }
 }

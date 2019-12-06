@@ -48,7 +48,7 @@ class LogFileTests {
 
   @Test
   void singleWriteAndRead () {
-    val config = Config.DEFAULT.withPath(file);
+    val config = LogFile.Config.DEFAULT.withPath(file);
     try (val logFile = new LogFile(config)) {
       val payload = new byte[167];
       ThreadLocalRandom.current().nextBytes(payload);
@@ -70,7 +70,7 @@ class LogFileTests {
 
   @Test
   void multipleWritesAndReads () {
-    val config = Config.builder()
+    val config = LogFile.Config.builder()
         .path(file)
         .blockBufferSizeBytes(32)
         .build();
@@ -96,7 +96,7 @@ class LogFileTests {
 
   @Test
   void writeAndReadBigOne () {
-    val config = Config.builder()
+    val config = LogFile.Config.builder()
         .path(file)
         .blockBufferSizeBytes(32)
         .build();
@@ -120,7 +120,7 @@ class LogFileTests {
 
   @Test
   void writeAndReadWholeBlock () {
-    val config = Config.builder()
+    val config = LogFile.Config.builder()
         .path(file)
         .blockBufferSizeBytes(32)
         .build();

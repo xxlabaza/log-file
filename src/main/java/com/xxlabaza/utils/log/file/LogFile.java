@@ -35,8 +35,8 @@ import lombok.NonNull;
 import lombok.SneakyThrows;
 import lombok.Value;
 import lombok.With;
-import lombok.val;
 import lombok.experimental.FieldDefaults;
+import lombok.val;
 
 /**
  * The log file's management class, which allows two main operations:
